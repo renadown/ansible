@@ -1,0 +1,27 @@
+---
+- name: Criar Usuários e Adicionar ao Grupo Root
+  hosts: hostgroup
+  become: true  # Elevar permissões para root
+  vars_files:
+    - vault.yml  # Seu arquivo Vault contendo a senha do SSH
+    - secrets.yml  # O arquivo com os usuários e senhas
+
+  tasks:
+    - name: Criar usuários e adicionar ao grupo root
+      ansible.builtin.user:
+        name: "{{ item.username }}"
+        state: present
+        shell: /bin/bash  # Definindo o shell padrão
+        password: "{{ item.password | password_hash('sha512') }}"  # Usando a senha segura
+        group: wheel
+        append: yes  # Adiciona o usuário ao grupo sem remover de outros grupos
+      loop:
+        - { username: user1, password: "{{ user1_password }}" }
+        - { username: user2, password: "{{ user2_password }}" }
+
+    - name: Exibir usuários criados
+      debug:
+        msg: "Usuário {{ item.username }} criado com sucesso."
+      loop:
+        - { username: user1 }
+        - { username: user2 }
