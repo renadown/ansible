@@ -1,0 +1,21 @@
+---
+- name: Verificação de Hosts e Atualização do Sistema (Oracle Linux 8)
+  hosts: hostgroup
+  become: true  # Elevar permissões para root
+  vars_files:
+    - vault.yml  # Arquivo Vault contendo ansible_ssh_pass
+  tasks:
+
+    - name: Verificar se os hosts estão acessíveis
+      ansible.builtin.ping:
+
+    - name: Atualizar o índice de pacotes (dnf update)
+      ansible.builtin.dnf:
+        update_cache: yes
+      tags: update
+
+    - name: Realizar o upgrade dos pacotes (dnf upgrade)
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest  # Realiza um upgrade completo dos pacotes
+      tags: upgrade
