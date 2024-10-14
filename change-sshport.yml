@@ -1,0 +1,67 @@
+---
+- name: Alterar Porta SSH para 5555
+  hosts: hostgroup
+  become: true  # Elevar permissões para root
+  vars_files:
+    - vault.yml  # Arquivo Vault contendo a senha do SSH
+    - secrets.yml  # O arquivo com os usuários e senhas
+
+  tasks:
+    - name: Instalar o pacote openssh-server caso não esteja instalado
+      ansible.builtin.package:
+        name: openssh-server
+        state: present
+
+    - name: Alterar a porta SSH para 5555 no arquivo de configuração
+      ansible.builtin.replace:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?Port 22'
+        replace: 'Port 5555'
+        backup: yes  # Cria um backup do arquivo original
+      notify:
+        - Reiniciar SSH
+
+    - name: Permitir a nova porta no firewall (firewalld)
+      ansible.builtin.firewalld:
+        port: 5555/tcp
+        permanent: true
+        state: enabled
+      notify:
+        - Reload Firewalld
+
+    - name: Recarregar firewalld para aplicar as mudanças
+      ansible.builtin.systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Reiniciar o serviço SSH
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+      notify:
+        - Reiniciar SSH
+
+    - name: Aguardar a nova porta SSH ficar disponível (aumentando timeout)
+      wait_for:
+        port: 5555
+        host: "{{ ansible_host }}"
+        timeout: 60  # Aumentar o timeout para garantir que o serviço reinicie
+        state: started
+
+    - name: Atualizar o inventário dinamicamente para usar a nova porta SSH
+      add_host:
+        name: "{{ inventory_hostname }}"
+        ansible_ssh_port: 5555  # Atualiza a porta SSH para as próximas conexões
+        ansible_host: "{{ ansible_host }}"
+
+  handlers:
+    - name: Reiniciar SSH
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+
+    - name: Reload Firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: reloaded
+
