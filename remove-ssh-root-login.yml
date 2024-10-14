@@ -1,0 +1,53 @@
+---
+- name: Remover acesso SSH pelo usuário root
+  hosts: hostgroup
+  become: yes
+  vars_files:
+    - vault.yml  # Arquivo Vault contendo a senha do SSH
+    - secrets.yml  # Inclua seu arquivo de secrets se necessário
+
+  tasks:
+    - name: Fazer backup da configuração do SSHD
+      copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.bak
+      register: backup_status
+
+    - name: Remover acesso SSH para o usuário root
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin no'
+      notify: Restart SSHD
+
+    - name: Verificar configuração do SSHD
+      command: sshd -t
+      register: sshd_config_check
+      ignore_errors: yes  # Ignora erros para permitir que a verificação continue
+
+    - name: Reverter a configuração do SSHD se estiver incorreta
+      copy:
+        src: /etc/ssh/sshd_config.bak
+        dest: /etc/ssh/sshd_config
+      when: sshd_config_check.rc != 0
+      notify: Restart SSHD
+      register: revert_status
+
+    - name: Exibir mensagem de erro se a configuração estiver incorreta
+      fail:
+        msg: "A configuração do SSHD está incorreta. A configuração foi revertida."
+      when: sshd_config_check.rc != 0
+
+    - name: Verificar se o serviço SSH está ativo
+      command: systemctl is-active sshd
+      register: sshd_status
+
+    - name: Exibir status do serviço SSH
+      debug:
+        msg: "O serviço SSH está {{ sshd_status.stdout }}."
+
+  handlers:
+    - name: Restart SSHD
+      service:
+        name: sshd
+        state: restarted
