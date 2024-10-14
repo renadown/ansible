@@ -1,0 +1,28 @@
+---
+- name: Instalar VMware Tools
+  hosts: hostgroup
+  become: true  # Elevar permissões para root
+  vars_files:
+    - vault.yml  # Arquivo Vault contendo a senha do SSH
+    - secrets.yml  # O arquivo com os usuários e senhas
+
+  tasks:
+    - name: Verificar se o pacote open-vm-tools está instalado
+      ansible.builtin.package:
+        name: open-vm-tools
+        state: present
+
+    - name: Iniciar o serviço do VMware Tools(No caso do Oracle Linux 8 já veio nativo e por isso não tem o passo para instalação no playbook)
+      ansible.builtin.systemd:
+        name: vmtoolsd
+        state: started
+        enabled: yes
+
+    - name: Exibir status do serviço do VMware Tools
+      ansible.builtin.command: systemctl status vmtoolsd
+      register: vmtools_status
+
+    - name: Mostrar status do VMware Tools
+      debug:
+        var: vmtools_status.stdout_lines
+
