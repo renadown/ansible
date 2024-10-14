@@ -1,0 +1,30 @@
+---
+- name: Configurar SELinux para nova porta SSH
+  hosts: all
+  become: yes
+  vars_files:
+    - vault.yml  # Arquivo Vault contendo a senha do SSH
+    - secrets.yml  # Inclua seu arquivo de secrets se necessário
+
+  tasks:
+    - name: Verificar se a porta 5555 já está configurada no SELinux
+      command: semanage port -l | grep ssh_port_t | grep 5555
+      register: selinux_check
+      ignore_errors: yes
+
+    - name: Permitir a nova porta SSH 5555 no SELinux
+      command: semanage port -a -t ssh_port_t -p tcp 5555
+      when: selinux_check.rc != 0
+      register: selinux_result
+      ignore_errors: yes
+
+    - name: Modificar a porta no SELinux se já existir
+      command: semanage port -m -t ssh_port_t -p tcp 5555
+      when: selinux_check.rc == 0 or selinux_result.rc != 0
+      register: selinux_modify
+      ignore_errors: yes
+
+    - name: Exibir resultado da configuração do SELinux
+      debug:
+        msg: "Resultado da configuração do SELinux: {{ selinux_modify }}"
+
