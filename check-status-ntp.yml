@@ -1,0 +1,16 @@
+---
+- name: Verificar fontes NTP usando chronyc sources
+  hosts: hostgroup
+  become: true  # Elevar permissões para root
+  vars_files:
+    - vault.yml  # Seu arquivo Vault contendo a senha do SSH
+    - secrets.yml  # O arquivo com os usuários e senhas
+
+  tasks:
+    - name: Executar o comando chronyc sources
+      shell: chronyc sources
+      register: ntp_sources
+
+    - name: Exibir a saída do comando chronyc sources
+      debug:
+        var: ntp_sources.stdout
